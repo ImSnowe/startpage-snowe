@@ -1,310 +1,68 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <title>~/startpage 💤</title>
-  <meta name="darkreader-lock" />
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <head>
+    <title>~/startpage</title>
+    <meta name="darkreader-lock" />
+    <meta charset="UTF-8" />
+    <link
+      rel="icon"
+      href="https://raw.githubusercontent.com/NixOS/nixos-artwork/refs/heads/master/logo/nix-snowflake-white.svg"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="../src/css/style.css" rel="stylesheet" />
+  </head>
 
-  <!-- Preload font (woff2 only — woff is IE9-11 only, safe to drop) -->
-  <link rel="preload" href="src/fonts/SpaceMonoNF.woff2" as="font" type="font/woff2" crossorigin />
-
-  <link rel="icon" href="https://raw.githubusercontent.com/NixOS/nixos-artwork/refs/heads/master/logo/nix-snowflake-white.svg" />
-
-  <!--
-    Read localStorage synchronously before first paint to apply the
-    saved theme colors immediately — zero flash of wrong colors.
-    Uses DOM API instead of document.write (more reliable in modern browsers).
-  -->
-  <script>
-    var COLOR_SETS = [
-      { "--text-color": "#c0caf5", "--hover-color": "#bb9af7", "--accent-color": "#7aa2f7", "--accent-color-2": "#f7768e",  "--background-color": "#1E1E2E" },
-      { "--text-color": "#9fadc6", "--hover-color": "#9B5856", "--accent-color": "#28725A", "--accent-color-2": "#D2C7CB", "--background-color": "#15191d" },
-      { "--text-color": "#c0caf5", "--hover-color": "#e0af68", "--accent-color": "#7aa2f7", "--accent-color-2": "#bb9af7", "--background-color": "#1a1b26" },
-      { "--text-color": "#EAEFFD", "--hover-color": "#FDB6A7", "--accent-color": "#556BFF", "--accent-color-2": "#FA87A6", "--background-color": "#16191F" },
-    ];
-    var IMAGES = ["cover1.webp", "cover2.webp", "cover3.webp", "cover4.webp"];
-    var currentIndex = parseInt(localStorage.getItem("currentIndex")) || 0;
-
-    // Apply theme colors now, before CSS renders, via a DOM-inserted style tag
-    var _themeStyle = document.createElement("style");
-    var _colors = COLOR_SETS[currentIndex];
-    var _css = ":root{";
-    for (var _k in _colors) _css += _k + ":" + _colors[_k] + ";";
-    _css += "}";
-    _themeStyle.textContent = _css;
-    document.head.appendChild(_themeStyle);
-  </script>
-
-  <style>
-    @font-face {
-      font-family: "SpaceMono Nerd Font";
-      font-display: swap;
-      src:
-        local("SpaceMono Nerd Font"),
-        url(src/fonts/SpaceMonoNF.woff2) format("woff2");
-    }
-
-    :root {
-      color-scheme: dark;
-    }
-
-    html {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100svh;
-      background-color: var(--background-color);
-      background-image: url("src/bgs/topography.svg");
-      overflow-x: clip;
-      transition: background-color 0.2s ease-in-out;
-    }
-
-    body {
-      display: flex;
-      color: var(--text-color);
-      font-family: "SpaceMono Nerd Font", monospace;
-      justify-content: center;
-      align-items: center;
-    }
-
-    img {
-      transition:
-        transform 0.15s ease-in-out,
-        opacity 0.2s ease-in-out;
-    }
-
-    #text,
-    #image {
-      opacity: 0;
-      transition: opacity 0.2s ease-in;
-    }
-
-    #text.loaded,
-    #image.loaded {
-      opacity: 1;
-    }
-
-    #text.loaded * {
-      transition: color 0.2s ease-in-out;
-    }
-
-    #carouselImage {
-      height: 550px;
-      aspect-ratio: 9 / 16;
-      border-radius: 6px;
-      box-shadow: 0px 5px 15px 0px rgba(0, 0, 0, 0.5);
-      object-fit: cover;
-    }
-
-    /* Consolidated from two separate #image blocks in the original */
-    #image {
-      padding-right: 2em;
-    }
-
-    #carouselImage:hover {
-      transform: scale(1.1);
-      cursor: pointer;
-    }
-
-    @media (max-width: 800px) {
-      img,
-      #image {
-        display: none;
-        margin: 0;
-        padding: 0;
-      }
-    }
-
-    #greeting {
-      color: var(--accent-color-2);
-      font-size: 2.5em;
-      font-weight: 900;
-      grid-column: 1 / -1;
-      text-align: center;
-      display: grid;
-    }
-
-    #date {
-      font-size: 1.3em;
-      font-weight: 600;
-      color: var(--accent-color);
-      display: grid;
-      grid-column: 1 / -1;
-      text-align: center;
-      margin: 1em 0;
-    }
-
-    .header {
-      color: var(--accent-color);
-      font-size: 1.6em;
-      font-weight: 600;
-    }
-
-    #links {
-      display: grid;
-      grid-row-gap: 0.5em;
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    ul {
-      list-style-type: none;
-      padding-left: 1em;
-      margin-left: 0;
-    }
-
-    a {
-      color: var(--text-color);
-      font-size: 1.2em;
-      text-decoration: none;
-    }
-
-    a:hover {
-      color: var(--hover-color);
-      font-style: italic;
-    }
-
-    .fazzi .urls:nth-child(even) {
-      padding-left: 1.5em;
-    }
-  </style>
-</head>
-
-<body class="fazzi">
-  <div id="image" onclick="nextImage()">
-    <!--
-      No src here — JS sets the correct one immediately below.
-      The original hardcoded cover1.webp then JS overwrote it,
-      causing a wasted fetch when a different theme was saved.
-    -->
-    <img id="carouselImage" fetchpriority="high" decoding="async" alt="Cover image" />
-  </div>
-
-  <div id="text">
-    <div id="greeting">Welcome $HOME!</div>
-    <div id="date"></div>
-    <div id="links">
-      <div class="urls">
-        <div class="header">~/general </div>
-        <ul>
-          <li><a target="_blank" rel="noopener" href="https://youtube.com">YouTube</a></li>
-          <li><a target="_blank" rel="noopener" href="https://monkeytype.com">MonkeyType</a></li>
-          <li><a target="_blank" rel="noopener" href="https://mail.google.com">Gmail</a></li>
-          <li><a target="_blank" rel="noopener" href="https://mail.tutanota.com/mail">TutaMail</a></li>
-          <li><a target="_blank" rel="noopener" href="https://account.proton.me/apps">Proton</a></li>
-        </ul>
-      </div>
-      <div class="urls">
-        <div class="header">~/devel </div>
-        <ul>
-          <li><a target="_blank" rel="noopener" href="https://chatgpt.com">ChatGPT</a></li>
-          <li><a target="_blank" rel="noopener" href="https://claude.ai">Claude</a></li>
-          <li><a target="_blank" rel="noopener" href="https://chat.deepseek.com">DeepSeek</a></li>
-          <li><a target="_blank" rel="noopener" href="https://gemini.google.com">Gemini</a></li>
-          <li><a target="_blank" rel="noopener" href="https://github.com/ImSnowe?tab=repositories">GitHub</a></li>
-        </ul>
-      </div>
-      <div class="urls">
-        <div class="header">~/school 󰑴</div>
-        <ul>
-          <li><a target="_blank" rel="noopener" href="https://canva.com">Canva</a></li>
-          <li><a target="_blank" rel="noopener" href="https://docs.google.com">Docs</a></li>
-          <li><a target="_blank" rel="noopener" href="https://web.whatsapp.com">WhatsApp</a></li>
-          <li><a target="_blank" rel="noopener" href="https://discord.com">Discord</a></li>
-          <li><a target="_blank" rel="noopener" href="https://smpkby.elabschool.sch.id/my/">E-Learning</a></li>
-        </ul>
-      </div>
-      <div class="urls">
-        <div class="header">~/reddit </div>
-        <ul>
-          <li><a target="_blank" rel="noopener" href="https://reddit.com/">Reddit</a></li>
-          <li><a target="_blank" rel="noopener" href="https://reddit.com/r/unixporn/">r/unixporn</a></li>
-          <li><a target="_blank" rel="noopener" href="https://reddit.com/r/linux/">r/linux</a></li>
-          <li><a target="_blank" rel="noopener" href="https://reddit.com/r/privacy/">r/privacy</a></li>
-          <li><a target="_blank" rel="noopener" href="https://reddit.com/r/startpages/">r/startpages</a></li>
-        </ul>
+  <body class="fazzi">
+    <div id="image" onclick="nextImage()">
+      <img id="carouselImage" src="../src/images/cover1.webp" />
+    </div>
+    <div id="text">
+      <div id="greeting">Welcome $HOME!</div>
+      <div id="date"></div>
+      <div id="links">
+        <div class="urls">
+          <div class="header">~/general </div>
+          <ul>
+            <li><a target="_blank" href="https://youtube.com">YouTube</a></li>
+            <li><a target="_blank" href="https://monkeytype.com">MonkeyType</a></li>
+            <li><a target="_blank" href="https://mail.google.com">Gmail</a></li>
+            <li><a target="_blank" href="https://mail.tutanota.com/mail">TutaMail</a></li>
+            <li><a target="_blank" href="https://account.proton.me/apps">Proton</a></li>
+          </ul>
+        </div>
+        <div class="urls">
+          <div class="header">~/devel </div>
+          <ul>
+            <li><a target="_blank" href="https://chatgpt.com">ChatGPT</a></li>
+            <li><a target="_blank" href="https://claude.ai">Claude</a></li>
+            <li><a target="_blank" href="https://chat.deepseek.com">DeepSeek</a></li>
+            <li><a target="_blank" href="https://gemini.google.com">Gemini</a></li>
+            <li><a target="_blank" href="https://github.com/ImSnowe?tab=repositories">GitHub</a></li>
+          </ul>
+        </div>
+        <div class="urls">
+          <div class="header">~/school 󰑴</div>
+          <ul>
+            <li><a target="_blank" href="https://canva.com">Canva</a></li>
+            <li><a target="_blank" href="https://docs.google.com">Docs</a></li>
+            <li><a target="_blank" href="https://web.whatsapp.com">WhatsApp</a></li>
+            <li><a target="_blank" href="https://discord.com">Discord</a></li>
+            <li><a target="_blank" href="https://smpkby.elabschool.sch.id/my/">E-Learning</a></li>
+          </ul>
+        </div>
+        <div class="urls">
+          <div class="header">~/reddit </div>
+          <ul>
+            <li><a target="_blank" href="https://reddit.com/">Reddit</a></li>
+            <li><a target="_blank" href="https://reddit.com/r/unixporn/">r/unixporn</a></li>
+            <li><a target="_blank" href="https://reddit.com/r/linux/">r/linux</a></li>
+            <li><a target="_blank" href="https://reddit.com/r/privacy/">r/privacy</a></li>
+            <li><a target="_blank" href="https://reddit.com/r/startpages/">r/startpages</a></li>
+          </ul>
+        </div>
       </div>
     </div>
-  </div>
-
-  <script>
-    var imgEl = document.getElementById("carouselImage");
-    var textEl = document.getElementById("text");
-    var imageEl = document.getElementById("image");
-
-    // Set the correct image immediately — no double-fetch.
-    imgEl.src = "src/images/" + IMAGES[currentIndex];
-
-    // --- Colors ---
-    function updateColors() {
-      var colorSet = COLOR_SETS[currentIndex];
-      for (var prop in colorSet) {
-        document.documentElement.style.setProperty(prop, colorSet[prop]);
-      }
-    }
-
-    // --- Carousel ---
-    function nextImage() {
-      currentIndex = (currentIndex + 1) % IMAGES.length;
-      localStorage.setItem("currentIndex", currentIndex);
-      imgEl.style.opacity = "0";
-      updateColors();
-      setTimeout(function () {
-        imgEl.src = "src/images/" + IMAGES[currentIndex];
-        imgEl.style.opacity = "1";
-      }, 200);
-    }
-
-    // --- Reveal ---
-    // Text is shown on DOMContentLoaded — it doesn't depend on the image.
-    // Image is shown when it loads (or on error — never leave the page blank).
-    document.addEventListener("DOMContentLoaded", function () {
-      textEl.classList.add("loaded");
-    });
-
-    function revealImage() {
-      imageEl.classList.add("loaded");
-      // Preload remaining images during idle time — skip the current one.
-      var preload = function () {
-        IMAGES.forEach(function (name, i) {
-          if (i === currentIndex) return;
-          var el = new Image();
-          el.src = "src/images/" + name;
-        });
-      };
-      if ("requestIdleCallback" in window) {
-        requestIdleCallback(preload);
-      } else {
-        setTimeout(preload, 500);
-      }
-    }
-
-    if (imgEl.complete && imgEl.naturalWidth > 0) {
-      revealImage();
-    } else {
-      imgEl.addEventListener("load", revealImage, { once: true });
-      imgEl.addEventListener("error", revealImage, { once: true }); // never blank on broken image
-    }
-
-    // --- Clock ---
-    var dateEl = document.getElementById("date");
-    var dateOptions = {
-      weekday: "long",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "2-digit",
-    };
-
-    function showTime() {
-      var parts = new Date().toLocaleString("en-GB", dateOptions).split(", ");
-      dateEl.textContent = parts[0] + ", " + parts[2] + " | " + parts[1];
-    }
-
-    showTime();
-    setInterval(showTime, 1000);
-  </script>
-</body>
+  </body>
+  <script async src="../src/js/date.js"></script>
+  <script async src="../src/js/theme.js" currentIndex="0"></script>
 </html>
