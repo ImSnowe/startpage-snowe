@@ -6,60 +6,39 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!--
-    OPTIMIZATION 1: Read localStorage synchronously before any paint so
-    the correct theme colors are applied immediately — zero FOUC.
-    Also generates the correct <link rel="preload"> for the active image.
-  -->
-  <script>
-    (function () {
-      var IMAGES = ["cover1.webp", "cover2.webp", "cover3.webp", "cover4.webp"];
-      var COLOR_SETS = [
-        { "--text-color": "#c0caf5", "--hover-color": "#bb9af7", "--accent-color": "#7aa2f7", "--accent-color-2": "#f7768e",  "--background-color": "#1E1E2E" },
-        { "--text-color": "#9fadc6", "--hover-color": "#9B5856", "--accent-color": "#28725A", "--accent-color-2": "#D2C7CB", "--background-color": "#15191d" },
-        { "--text-color": "#c0caf5", "--hover-color": "#e0af68", "--accent-color": "#7aa2f7", "--accent-color-2": "#bb9af7", "--background-color": "#1a1b26" },
-        { "--text-color": "#EAEFFD", "--hover-color": "#FDB6A7", "--accent-color": "#556BFF", "--accent-color-2": "#FA87A6", "--background-color": "#16191F" },
-      ];
-
-      // Expose to page scope
-      window._SP = {
-        idx: parseInt(localStorage.getItem("currentIndex")) || 0,
-        images: IMAGES,
-        colorSets: COLOR_SETS,
-      };
-
-      // Inject CSS variables via a <style> block so colors are painted
-      // on the very first frame — no JS-after-load round trip needed.
-      var colors = COLOR_SETS[window._SP.idx];
-      var css = ":root{";
-      for (var k in colors) css += k + ":" + colors[k] + ";";
-      css += "}";
-      document.write("<style>" + css + "</style>");
-
-      // OPTIMIZATION 2: Tell the browser to fetch the correct cover image
-      // immediately using a high-priority preload — it starts downloading
-      // in parallel with the rest of the HTML parse.
-      document.write(
-        '<link rel="preload" href="src/images/' + IMAGES[window._SP.idx] +
-        '" as="image" fetchpriority="high" />'
-      );
-    })();
-  </script>
-
-  <!-- OPTIMIZATION 3: Preload the font (woff2 only — woff is IE9-11 only) -->
+  <!-- Preload font (woff2 only — woff is IE9-11 only, safe to drop) -->
   <link rel="preload" href="src/fonts/SpaceMonoNF.woff2" as="font" type="font/woff2" crossorigin />
 
   <link rel="icon" href="https://raw.githubusercontent.com/NixOS/nixos-artwork/refs/heads/master/logo/nix-snowflake-white.svg" />
 
   <!--
-    OPTIMIZATION 4: Inline all CSS — eliminates a render-blocking
-    stylesheet request entirely.
+    Read localStorage synchronously before first paint to apply the
+    saved theme colors immediately — zero flash of wrong colors.
+    Uses DOM API instead of document.write (more reliable in modern browsers).
   -->
+  <script>
+    var COLOR_SETS = [
+      { "--text-color": "#c0caf5", "--hover-color": "#bb9af7", "--accent-color": "#7aa2f7", "--accent-color-2": "#f7768e",  "--background-color": "#1E1E2E" },
+      { "--text-color": "#9fadc6", "--hover-color": "#9B5856", "--accent-color": "#28725A", "--accent-color-2": "#D2C7CB", "--background-color": "#15191d" },
+      { "--text-color": "#c0caf5", "--hover-color": "#e0af68", "--accent-color": "#7aa2f7", "--accent-color-2": "#bb9af7", "--background-color": "#1a1b26" },
+      { "--text-color": "#EAEFFD", "--hover-color": "#FDB6A7", "--accent-color": "#556BFF", "--accent-color-2": "#FA87A6", "--background-color": "#16191F" },
+    ];
+    var IMAGES = ["cover1.webp", "cover2.webp", "cover3.webp", "cover4.webp"];
+    var currentIndex = parseInt(localStorage.getItem("currentIndex")) || 0;
+
+    // Apply theme colors now, before CSS renders, via a DOM-inserted style tag
+    var _themeStyle = document.createElement("style");
+    var _colors = COLOR_SETS[currentIndex];
+    var _css = ":root{";
+    for (var _k in _colors) _css += _k + ":" + _colors[_k] + ";";
+    _css += "}";
+    _themeStyle.textContent = _css;
+    document.head.appendChild(_themeStyle);
+  </script>
+
   <style>
     @font-face {
       font-family: "SpaceMono Nerd Font";
-      /* OPTIMIZATION 5: Drop woff fallback (IE9-11 only).
-         woff2 has 96%+ global support and saves one extra entry. */
       font-display: swap;
       src:
         local("SpaceMono Nerd Font"),
@@ -70,9 +49,6 @@
       color-scheme: dark;
     }
 
-    /* OPTIMIZATION 6: Always allow background-color transition.
-       The original only applied it after .loaded — but since we set
-       colors in the first paint there is no risk of a transition flash. */
     html {
       display: flex;
       align-items: center;
@@ -121,8 +97,7 @@
       object-fit: cover;
     }
 
-    /* OPTIMIZATION 7: Consolidated #image rules (was split into two
-       separate blocks with margin-right AND padding-right). */
+    /* Consolidated from two separate #image blocks in the original */
     #image {
       padding-right: 2em;
     }
@@ -198,11 +173,9 @@
 <body class="fazzi">
   <div id="image" onclick="nextImage()">
     <!--
-      OPTIMIZATION 8: No src here — JS sets the correct src immediately
-      below. The original HTML hard-coded cover1.webp, which caused a
-      double-fetch whenever a different theme was saved in localStorage.
-      fetchpriority="high" + decoding="async" = browser prioritizes
-      decode off the main thread.
+      No src here — JS sets the correct one immediately below.
+      The original hardcoded cover1.webp then JS overwrote it,
+      causing a wasted fetch when a different theme was saved.
     -->
     <img id="carouselImage" fetchpriority="high" decoding="async" alt="Cover image" />
   </div>
@@ -254,96 +227,84 @@
     </div>
   </div>
 
-  <!--
-    OPTIMIZATION 9: Single inline <script> at end of body.
-    - No async/defer needed (it's at the bottom, DOM is already parsed)
-    - No document.currentScript hack (was broken with async anyway)
-    - Eliminates 2 extra HTTP round-trips (date.js + theme.js)
-  -->
   <script>
-    (function () {
-      var sp = window._SP; // state set in <head>
-      var currentIndex = sp.idx;
-      var images = sp.images;
-      var colorSets = sp.colorSets;
+    var imgEl = document.getElementById("carouselImage");
+    var textEl = document.getElementById("text");
+    var imageEl = document.getElementById("image");
 
-      // --- Image ---
-      var imgEl = document.getElementById("carouselImage");
-      // Set correct src once — no double-fetch.
-      imgEl.src = "src/images/" + images[currentIndex];
+    // Set the correct image immediately — no double-fetch.
+    imgEl.src = "src/images/" + IMAGES[currentIndex];
 
-      // --- Colors (already applied in <head>, but keep in sync for cycling) ---
-      function updateColors() {
-        var colorSet = colorSets[currentIndex];
-        for (var prop in colorSet) {
-          document.documentElement.style.setProperty(prop, colorSet[prop]);
-        }
+    // --- Colors ---
+    function updateColors() {
+      var colorSet = COLOR_SETS[currentIndex];
+      for (var prop in colorSet) {
+        document.documentElement.style.setProperty(prop, colorSet[prop]);
       }
+    }
 
-      // --- Carousel ---
-      window.nextImage = function () {
-        currentIndex = (currentIndex + 1) % images.length;
-        localStorage.setItem("currentIndex", currentIndex);
-        imgEl.style.opacity = "0";
-        updateColors();
-        setTimeout(function () {
-          imgEl.src = "src/images/" + images[currentIndex];
-          imgEl.style.opacity = "1";
-        }, 200);
+    // --- Carousel ---
+    function nextImage() {
+      currentIndex = (currentIndex + 1) % IMAGES.length;
+      localStorage.setItem("currentIndex", currentIndex);
+      imgEl.style.opacity = "0";
+      updateColors();
+      setTimeout(function () {
+        imgEl.src = "src/images/" + IMAGES[currentIndex];
+        imgEl.style.opacity = "1";
+      }, 200);
+    }
+
+    // --- Reveal ---
+    // Text is shown on DOMContentLoaded — it doesn't depend on the image.
+    // Image is shown when it loads (or on error — never leave the page blank).
+    document.addEventListener("DOMContentLoaded", function () {
+      textEl.classList.add("loaded");
+    });
+
+    function revealImage() {
+      imageEl.classList.add("loaded");
+      // Preload remaining images during idle time — skip the current one.
+      var preload = function () {
+        IMAGES.forEach(function (name, i) {
+          if (i === currentIndex) return;
+          var el = new Image();
+          el.src = "src/images/" + name;
+        });
       };
-
-      // OPTIMIZATION 10: Fade in as soon as the carousel image loads —
-      // not window.onload which waits for every single resource
-      // (fonts, background SVG, all other images, etc.).
-      function revealPage() {
-        document.getElementById("image").classList.add("loaded");
-        document.getElementById("text").classList.add("loaded");
-
-        // OPTIMIZATION 11: Preload only the OTHER images (skip current).
-        // Use requestIdleCallback so it doesn't compete with paint.
-        var preload = function () {
-          images.forEach(function (name, i) {
-            if (i === currentIndex) return;
-            var el = new Image();
-            el.src = "src/images/" + name;
-          });
-        };
-        if ("requestIdleCallback" in window) {
-          requestIdleCallback(preload);
-        } else {
-          setTimeout(preload, 500);
-        }
-      }
-
-      // If the preloaded image is already in cache it may be complete instantly
-      if (imgEl.complete && imgEl.naturalWidth > 0) {
-        revealPage();
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(preload);
       } else {
-        imgEl.addEventListener("load", revealPage, { once: true });
+        setTimeout(preload, 500);
       }
+    }
 
-      // --- Clock ---
-      var dateEl = document.getElementById("date");
-      var dateOptions = {
-        weekday: "long",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-      };
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+      revealImage();
+    } else {
+      imgEl.addEventListener("load", revealImage, { once: true });
+      imgEl.addEventListener("error", revealImage, { once: true }); // never blank on broken image
+    }
 
-      function showTime() {
-        var d = new Date();
-        var parts = d.toLocaleString("en-GB", dateOptions).split(", ");
-        // OPTIMIZATION 12: textContent instead of innerHTML for a text-only node.
-        dateEl.textContent = parts[0] + ", " + parts[2] + " | " + parts[1];
-      }
+    // --- Clock ---
+    var dateEl = document.getElementById("date");
+    var dateOptions = {
+      weekday: "long",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "2-digit",
+    };
 
-      showTime();
-      setInterval(showTime, 1000);
-    })();
+    function showTime() {
+      var parts = new Date().toLocaleString("en-GB", dateOptions).split(", ");
+      dateEl.textContent = parts[0] + ", " + parts[2] + " | " + parts[1];
+    }
+
+    showTime();
+    setInterval(showTime, 1000);
   </script>
 </body>
 </html>
