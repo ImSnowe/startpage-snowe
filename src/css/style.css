@@ -68,10 +68,10 @@ body {
   margin-right: 1em;
 }
 
-#carouselImage:hover {
+/* #carouselImage:hover {
   transform: scale(1.1);
   cursor: pointer;
-}
+} */
 
 @media (max-width: 800px) {
   img,
